@@ -1,12 +1,15 @@
 import json
 import traceback
 import sqlite3
+import schedule
 from random import randint, choice
+from mytoken import token
+import questbot as qb
 from bot.bot import Bot
 from bot.handler import MessageHandler, BotButtonCommandHandler, StartCommandHandler
 
-TOKEN = "TOKEN"
-bot = Bot(token=TOKEN)
+
+bot = Bot(token=token())
 
 con = sqlite3.connect("database.db", check_same_thread=False)
 cursor = con.cursor()
@@ -21,115 +24,8 @@ with open('live.txt', mode='r', encoding="utf_8") as f:
     text = f.read().splitlines()
 
 
-def addCash(user_id, cash, start=False):
-    cursor.execute("SELECT id FROM users WHERE id = ?", [user_id])
-    result = cursor.fetchone()
-    if result is None:
-        if start:
-            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                           [user_id, cash, 1, 1, None, 0, 0, 0, 0])
-            print(f"LOG: Create id: {user_id}, cash: {cash}")
-        else:
-            cursor.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                           [user_id, cash, 0, 1, None, 0, 0, 0, 0])
-            print(f"LOG: Create id: {user_id}, cash: {cash}")
-    else:
-        if start:
-            cursor.execute("SELECT start FROM users WHERE id = ?", [user_id])
-            result = cursor.fetchone()
-            if not result[0]:
-                cursor.execute(
-                    "SELECT cash FROM users WHERE id = ?", [user_id])
-                result = cursor.fetchone()
-                cursor.execute("UPDATE users SET cash = ?, start = 1 WHERE id = ?",
-                               [int(result[0]) + int(cash), user_id])
-                print(f"LOG: Add id: {user_id}, cash: {result[0]} (+{cash})")
-        else:
-            cursor.execute("SELECT cash FROM users WHERE id = ?", [user_id])
-            result = cursor.fetchone()
-            cursor.execute("UPDATE users SET cash = ? WHERE id = ?", [
-                int(result[0]) + int(cash), user_id])
-            print(f"LOG: Add id: {user_id}, cash: {result[0]} (+{cash})")
-    con.commit()
-
-
-def sendEnd(ans, event):
-    if "{" in text[ans]:
-        bot.send_text(chat_id=event.data['from']['userId'],
-                      text="Это конец квеста.\nЧтобы запустить его заново, просто нажмите на кнопку.",
-                      inline_keyboard_markup="{}".format(json.dumps(
-                          [[{"text": "🔄Заново", "callbackData": "repeat", "style": "primary"},
-                            {"text": "🗂️В меню", "callbackData": "menu", "style": "primary"}]])))
-
-
-def getRating(user_id):
-    cursor.execute("SELECT * FROM users ORDER BY cash DESC LIMIT 10")
-    result = cursor.fetchall()
-    text = ""
-    your = 10
-    for i in range(len(result)):
-        text += f"{i + 1}. @{result[i][0]} - {result[i][1]} монет\n"
-        if result[i][0] == user_id:
-            your = i
-    text += f"\nВы на {your + 1} месте."
-    return text
-
-
-def repl(ans):
-    # Форматирует текст
-    per1 = False
-    per2 = False
-    per3 = False
-    out = ""
-    num = ""
-    replic = ""
-    buttons = []
-    konc = ""
-    numKonc = []
-    nums = []
-    counter = 0
-    for i in text[int(ans)]:
-        if i == "*" and not per2:
-            out += "\n"
-        elif i == "{":
-            per3 = True
-        elif i == "}":
-            per3 = False
-            numKonc.append(int(konc))
-        elif i == "<":
-            per1 = True
-            out += "\n"
-        elif i == ">":
-            per1 = False
-            per2 = True
-        elif i == ";" and per2:
-            per2 = False
-            nums.append(int(num))
-            buttons.append([{"text": f"{replic}", "callbackData": f"{int(num)}", "style": "primary"}])
-            replic = ""
-            num = ""
-            counter = 0
-        elif per1 is True:
-            num += i
-        elif per2 is True:
-            counter += 1
-            if counter >= 25 and i == " ":
-                replic += "\n"
-                counter = 0
-            if i == "*":
-                replic += "\n"
-            else:
-                replic += i
-        elif per3 is True:
-            konc += i
-        else:
-            out += i
-    buttons.append([{"text": "🗂️ Меню", "callbackData": "nmenu", "style": "base"}])
-    return out, str(json.dumps(buttons)), nums
-
-
 def start_cb(bot, event):
-    addCash(event.from_chat, 200, True)
+    qb.addCash(event.from_chat, 200, True)
     bot.send_text(chat_id=event.from_chat,
                   text=f"Добро пожаловать, {event.data['from']['firstName']}!\nВы находитесь в 🗂️ Меню",
                   inline_keyboard_markup="{}".format(json.dumps(
@@ -139,20 +35,9 @@ def start_cb(bot, event):
                         {"text": "ℹ ️Инфо", "callbackData": "info", "style": "primary"}]])))
 
 
-def isEnd(ans):
-    x = False
-    for i in text[ans]:
-        if i == "{":
-            x = True
-    if x:
-        return True
-    else:
-        return False
-
-
 def answer_cb(bot, event):
     try:
-        addCash(event.data['from']['userId'], 200, True)
+        qb.addCash(event.data['from']['userId'], 200, True)
         if str(event.type) == 'EventType.NEW_MESSAGE':
             print(event.data['from']['userId'], event.data['text'])
         else:
@@ -216,13 +101,13 @@ def answer_cb(bot, event):
                 cursor.execute("SELECT last FROM users WHERE id = ?", [event.data['from']['userId']])
                 last = cursor.fetchone()[0]
                 bot.send_text(chat_id=event.data['from']['userId'],
-                              text=repl(last)[0],
-                              inline_keyboard_markup=repl(last)[1])
+                              text=qb.repl(last)[0],
+                              inline_keyboard_markup=qb.repl(last)[1])
 
             elif event.data['callbackData'] == "repeat":
                 bot.send_text(chat_id=event.data['from']['userId'],
-                              text=repl(0)[0],
-                              inline_keyboard_markup=repl(0)[1])
+                              text=qb.repl(0)[0],
+                              inline_keyboard_markup=qb.repl(0)[1])
                 cursor.execute("UPDATE users SET last = ? WHERE id = ?", [0, event.data['from']['userId']])
 
             elif event.data['callbackData'] == "bonus":
@@ -230,7 +115,7 @@ def answer_cb(bot, event):
                 result = cursor.fetchone()
                 if result[0]:
                     bmoney = randint(5, 10)
-                    addCash(event.data['from']['userId'], bmoney, False)
+                    qb.addCash(event.data['from']['userId'], bmoney, False)
                     bot.edit_text(chat_id=event.data['from']['userId'],
                                   msg_id=event.data['message']['msgId'],
                                   text=f"Ваш бонус: {bmoney}.\nВозвращайтесь завтра!",
@@ -248,7 +133,7 @@ def answer_cb(bot, event):
             elif event.data['callbackData'] == "rate":
                 bot.edit_text(chat_id=event.data['from']['userId'],
                               msg_id=event.data['message']['msgId'],
-                              text=getRating(event.data['from']['userId']),
+                              text=qb.getRating(event.data['from']['userId']),
                               inline_keyboard_markup="{}".format(json.dumps(
                                   [[{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
 
@@ -381,8 +266,8 @@ def answer_cb(bot, event):
                     cursor.execute("SELECT last FROM users WHERE id = ?", [event.data['from']['userId']])
                     last = cursor.fetchone()[0]
                     bot.send_text(chat_id=event.data['from']['userId'],
-                                  text=repl(last)[0],
-                                  inline_keyboard_markup=repl(last)[1])
+                                  text=qb.repl(last)[0],
+                                  inline_keyboard_markup=qb.repl(last)[1])
                 else:
                     if (cash - 10) * -1 < 5:
                         t = "монеты"
@@ -394,8 +279,8 @@ def answer_cb(bot, event):
                                       [[{"text": "🗂️Меню", "callbackData": "menu", "style": "base"}]])))
 
             else:
-                if not isEnd(int(event.data['callbackData'])):
-                    if len(repl(int(event.data['callbackData']))[1]) > 4:
+                if not qb.isEnd(int(event.data['callbackData'])):
+                    if len(qb.repl(int(event.data['callbackData']))[1]) > 4:
                         cursor.execute("SELECT msg_count FROM users WHERE id = ?", [event.data['from']['userId']])
                         count = cursor.fetchone()[0]
                         cursor.execute("SELECT last FROM users WHERE id = ?", [event.data['from']['userId']])
@@ -406,18 +291,18 @@ def answer_cb(bot, event):
                                           inline_keyboard_markup="{}".format(json.dumps(
                                               [[{"text": "💰 Заплатить", "callbackData": "nalog", "style": "primary"},
                                                 {"text": "🗂️ Меню", "callbackData": "menu", "style": "primary"}]])))
-                        elif int(event.data['callbackData']) in repl(last)[2]:
+                        elif int(event.data['callbackData']) in qb.repl(last)[2]:
                             cursor.execute("UPDATE users SET msg_count = ? WHERE id = ?",
                                            [int(count) + 1, event.data['from']['userId']])
                             bot.send_text(chat_id=event.data['from']['userId'],
-                                          text=repl(int(event.data['callbackData']))[0],
-                                          inline_keyboard_markup=repl(int(event.data['callbackData']))[1])
+                                          text=qb.repl(int(event.data['callbackData']))[0],
+                                          inline_keyboard_markup=qb.repl(int(event.data['callbackData']))[1])
                             for i in event.data['message']['parts'][0]['payload']:
                                 if i[0]['callbackData'] == event.data['callbackData']:
-                                    replica = i[0]['text']
+                                    qb.replica = i[0]['text']
                             bot.edit_text(chat_id=event.data['from']['userId'],
                                           msg_id=event.data['message']['msgId'],
-                                          text=repl(int(last))[0]+f"===== {replica} =====")
+                                          text=qb.repl(int(last))[0]+f"===== {qb.replica} =====")
                             cursor.execute("UPDATE users SET last = ? WHERE id = ?",
                                            [int(event.data['callbackData']), event.data['from']['userId']])
                         else:
@@ -426,15 +311,15 @@ def answer_cb(bot, event):
                             bot.send_text(chat_id=event.data['from']['userId'],
                                           text="Не жульничайте! Не нажимайте на кнопки из других сообщений.")
                             bot.send_text(chat_id=event.data['from']['userId'],
-                                          text=repl(last)[0],
-                                          inline_keyboard_markup=repl(last)[1])
+                                          text=qb.repl(last)[0],
+                                          inline_keyboard_markup=qb.repl(last)[1])
                     else:
                         bot.send_text(chat_id=event.data['from']['userId'],
-                                      text=repl(int(event.data['callbackData']))[0])
-                        sendEnd(int(event.data['callbackData']), event)
+                                      text=qb.repl(int(event.data['callbackData']))[0])
+                        qb.sendEnd(int(event.data['callbackData']), event)
                 else:
                     bot.send_text(chat_id=event.data['from']['userId'],
-                                  text=repl(int(event.data['callbackData']))[0])
+                                  text=qb.repl(int(event.data['callbackData']))[0])
                     cursor.execute("UPDATE users SET msg_count = 0 WHERE id = ?", [event.data['from']['userId']])
                     cursor.execute("UPDATE users SET last = ? WHERE id = ?", [int(event.data['callbackData']), event.data['from']['userId']])
                     bot.send_text(chat_id=event.data['from']['userId'],
@@ -446,6 +331,7 @@ def answer_cb(bot, event):
     except Exception as e:
         print(traceback.format_exc())
 
+schedule.every().day.at("00:00").do(qb.everydayBonus)
 
 bot.dispatcher.add_handler(BotButtonCommandHandler(callback=answer_cb))
 bot.dispatcher.add_handler(StartCommandHandler(callback=start_cb))
