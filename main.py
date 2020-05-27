@@ -100,9 +100,53 @@ def answer_cb(bot, event):
             if event.data['callbackData'] == "quest":
                 cursor.execute("SELECT last FROM users WHERE id = ?", [event.data['from']['userId']])
                 last = cursor.fetchone()[0]
-                bot.send_text(chat_id=event.data['from']['userId'],
-                              text=qb.repl(last)[0],
-                              inline_keyboard_markup=qb.repl(last)[1])
+                if not qb.isEnd(int(last)):
+                    if len(qb.repl(int(last))[1]) > 4:
+                        cursor.execute("SELECT msg_count FROM users WHERE id = ?", [event.data['from']['userId']])
+                        count = cursor.fetchone()[0]
+                        if int(count) >= 5:
+                            bot.send_text(chat_id=event.data['from']['userId'],
+                                          text="Для продолжения нужно заплатить 10 монет",
+                                          inline_keyboard_markup="{}".format(json.dumps(
+                                              [[{"text": "💰 Заплатить", "callbackData": "nalog", "style": "primary"},
+                                                {"text": "🗂️ Меню", "callbackData": "menu", "style": "primary"}]])))
+                        elif int(last) in qb.repl(last)[2]:
+                            cursor.execute("UPDATE users SET msg_count = ? WHERE id = ?",
+                                           [int(count) + 1, event.data['from']['userId']])
+                            bot.send_text(chat_id=event.data['from']['userId'],
+                                          text=qb.repl(int(last))[0],
+                                          inline_keyboard_markup=qb.repl(int(last))[1])
+                            for i in event.data['message']['parts'][0]['payload']:
+                                if i[0]['callbackData'] == last:
+                                    qb.replica = i[0]['text']
+                            bot.edit_text(chat_id=event.data['from']['userId'],
+                                          msg_id=event.data['message']['msgId'],
+                                          text=qb.repl(int(last))[0] + f"===== {qb.replica} =====")
+                            cursor.execute("UPDATE users SET last = ? WHERE id = ?",
+                                           [int(last), event.data['from']['userId']])
+                        else:
+                            cursor.execute("SELECT last FROM users WHERE id = ?", [event.data['from']['userId']])
+                            last = int(cursor.fetchone()[0])
+                            bot.send_text(chat_id=event.data['from']['userId'],
+                                          text="Не жульничайте! Не нажимайте на кнопки из других сообщений.")
+                            bot.send_text(chat_id=event.data['from']['userId'],
+                                          text=qb.repl(last)[0],
+                                          inline_keyboard_markup=qb.repl(last)[1])
+                    else:
+                        bot.send_text(chat_id=event.data['from']['userId'],
+                                      text=qb.repl(int(last))[0])
+                        qb.sendEnd(int(last), event)
+                else:
+                    bot.send_text(chat_id=event.data['from']['userId'],
+                                  text=qb.repl(int(last))[0])
+                    cursor.execute("UPDATE users SET msg_count = 0 WHERE id = ?", [event.data['from']['userId']])
+                    cursor.execute("UPDATE users SET last = ? WHERE id = ?",
+                                   [int(last), event.data['from']['userId']])
+                    bot.send_text(chat_id=event.data['from']['userId'],
+                                  text="Это конец квеста.\nЧтобы запустить его заново, просто нажмите на кнопку.",
+                                  inline_keyboard_markup="{}".format(json.dumps(
+                                      [[{"text": "🔄 Заново", "callbackData": "repeat", "style": "primary"},
+                                        {"text": "🗂️ Меню", "callbackData": "menu", "style": "primary"}]])))
 
             elif event.data['callbackData'] == "repeat":
                 bot.send_text(chat_id=event.data['from']['userId'],
