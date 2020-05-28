@@ -1,3 +1,3 @@
 def token():
-    TOKEN = "001.3602365628.2266645551:752313436"
+    TOKEN = "TOKEN"
     return TOKEN
