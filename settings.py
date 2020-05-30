@@ -7,5 +7,5 @@ cursor.execute(
     "CREATE TABLE IF NOT EXISTS users (id TEXT, cash INTEGER, start BOOLEAN, eday BOOLEAN, ref TEXT, promo BOOLEAN, "
     "get_promo BOOLEAN, msg_count INTEGER, last INTEGER, ends TEXT)")
 con.commit()
-cursor.execute("ALTER TABLE users ADD COLUMN ends TEXT")
+cursor.execute("ALTER TABLE users ADD COLUMN ends TEXT DEFAULT '0, 0, 0, 0, 0, 0, 0, 0, 0, 0'")
 con.commit()
