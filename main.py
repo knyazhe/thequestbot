@@ -287,7 +287,7 @@ def answer_cb(bot, event):
                 money = cursor.fetchone()[0]
                 bot.edit_text(chat_id=event.data['from']['userId'],
                               msg_id=event.data['message']['msgId'],
-                              text=f"{event.data['from']['firstName']}, это Ваш кошелёк.\nВаш баланс: {money}",
+                              text=f"{event.data['from']['firstName']}, это Ваш кошелёк.\nВаш баланс: {money}\nПриглашайте друзей и получайте монетки!",
                               inline_keyboard_markup="{}".format(json.dumps(
                                   [[{"text": "🔗 Реф. система", "callbackData": "ref", "style": "base"},
                                     {"text": "💸 Ежедневный бонус", "callbackData": "bonus", "style": "base"}],
@@ -451,6 +451,8 @@ def main():
 
 def eday():
     schedule.every().day.at("00:00").do(qb.everydayBonus)
+    schedule.every().friday.at("20:00").do(qb.mailing, "Чем же закончится Ваша история?🤔")
+    schedule.every().sunday.at("20:00").do(qb.mailing, "Чем же закончится Ваша история?🤔")
     while True:
         schedule.run_pending()
         time.sleep(1)

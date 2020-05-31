@@ -21,6 +21,17 @@ def everydayBonus():
     con.commit()
 
 
+def mailing(text):
+    cursor.execute("SELECT id FROM users")
+    result = cursor.fetchall()[0]
+    for i in result:
+        bot.send_text(chat_id=i,
+                      text=text,
+                      inline_keyboard_markup="{}".format(json.dumps(
+                          [[{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}],
+                           [{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
+
+
 def addCash(user_id, cash, start=False):
     cursor.execute("SELECT id FROM users WHERE id = ?", [user_id])
     result = cursor.fetchone()
@@ -58,14 +69,14 @@ def sendEnd(ans, event):
         bot.send_text(chat_id=event.data['from']['userId'],
                       text="Это конец квеста.\nЧтобы запустить его заново, просто нажмите на кнопку.",
                       inline_keyboard_markup="{}".format(json.dumps(
-                          [[{"text": "🔄Заново", "callbackData": "repeat", "style": "primary"},
-                            {"text": "🗂️В меню", "callbackData": "menu", "style": "primary"}]])))
+                          [[{"text": "🔄 Заново", "callbackData": "repeat", "style": "primary"},
+                            {"text": "🗂️ Меню", "callbackData": "menu", "style": "primary"}]])))
 
 
 def getRating(user_id, event):
     cursor.execute("SELECT * FROM users ORDER BY cash DESC")
     result = cursor.fetchall()
-    text = ""
+    text = "Приглашайте друзей и поднимайтесь в рейтинге!\n"
     your = 10
     for i in range(len(result)):
         if i < 10:
@@ -73,7 +84,7 @@ def getRating(user_id, event):
                 t = "монеты"
             else:
                 t = "монет"
-            text += f"{i + 1}.{'  '*(3-len(str(i + 1)))}|  {json.loads(bot.get_chat_info(result[i][0]).text)['firstName']} - {result[i][1]} {t}\n"
+            text += f"{i + 1}.{'  ' * (3 - len(str(i + 1)))}|  {json.loads(bot.get_chat_info(result[i][0]).text)['firstName']} - {result[i][1]} {t}\n"
         if result[i][0] == user_id:
             your = i
     text += f"\nВы на {your + 1} месте."
