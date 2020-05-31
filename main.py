@@ -8,7 +8,8 @@ from random import randint, choice
 from mytoken import token
 import questbot as qb
 from bot.bot import Bot
-from bot.handler import MessageHandler, BotButtonCommandHandler, StartCommandHandler
+from bot.filter import Filter
+from bot.handler import MessageHandler, BotButtonCommandHandler, StartCommandHandler, CommandHandler
 
 bot = Bot(token=token())
 con = sqlite3.connect("database.db", check_same_thread=False)
@@ -36,66 +37,66 @@ def start_cb(bot, event):
                         {"text": "ℹ ️Инфо", "callbackData": "info", "style": "primary"}]])))
 
 
+def notwork_cb(bot, event):
+    bot.send_text(chat_id=event.from_chat,
+                  text="Если Вы застряли на \"Вы находитесь в меню\" и у Вас не отображаются кнопки, установите "
+                       "приложение на телефон или компьютер. А если оно у Вас установлено, обновите.\nЗатем напишите /start.")
+
+
 def answer_cb(bot, event):
     try:
         qb.addCash(event.data['from']['userId'], 200, True)
         if str(event.type) == 'EventType.NEW_MESSAGE':
-            print(event.data['from']['userId'], event.data['text'])
-        else:
-            print(event.data['from']['userId'], event.data['callbackData'])
-
-        if str(event.type) == 'EventType.NEW_MESSAGE':
             cursor.execute("SELECT promo FROM users WHERE id = ?", [event.data['from']['userId']])
             promo = cursor.fetchone()[0]
             event.data['text'] = event.data['text'].lower()
-            if event.data['text'][0] != "/":
-                if promo:
-                    cursor.execute("SELECT ref FROM users WHERE ref = ?", [event.data['text'].lower()])
-                    ref = cursor.fetchone()
-                    cursor.execute("SELECT get_promo FROM users WHERE id = ?", [event.data['from']['userId']])
-                    get_promo = cursor.fetchone()[0]
-                    if get_promo:
+            if promo:
+                cursor.execute("SELECT ref FROM users WHERE ref = ?", [event.data['text'].lower()])
+                ref = cursor.fetchone()
+                cursor.execute("SELECT get_promo FROM users WHERE id = ?", [event.data['from']['userId']])
+                get_promo = cursor.fetchone()[0]
+                if get_promo:
+                    bot.send_text(chat_id=event.data['from']['userId'],
+                                  text="🧐 Вы уже вводили промокод",
+                                  inline_keyboard_markup="{}".format(json.dumps(
+                                      [[{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
+                    cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
+                elif ref:
+                    cursor.execute("SELECT ref FROM users WHERE id = ?", [event.data['from']['userId']])
+                    self_ref = cursor.fetchone()[0]
+                    if ref[0] == self_ref:
                         bot.send_text(chat_id=event.data['from']['userId'],
-                                      text="🧐 Вы уже вводили промокод",
-                                      inline_keyboard_markup="{}".format(json.dumps(
-                                          [[{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
-                        cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
-                    elif ref:
-                        cursor.execute("SELECT ref FROM users WHERE id = ?", [event.data['from']['userId']])
-                        self_ref = cursor.fetchone()[0]
-                        if ref[0] == self_ref:
-                            bot.send_text(chat_id=event.data['from']['userId'],
-                                          text="😏 Не стоит хитрить.",
-                                          inline_keyboard_markup="{}".format(json.dumps(
-                                              [[{"text": "Ещё раз", "callbackData": "promo", "style": "primary"}],
-                                               [{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
-                            cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
-
-                        else:
-                            cursor.execute("UPDATE users SET get_promo = 1 WHERE id = ?",
-                                           [event.data['from']['userId']])
-                            cursor.execute("SELECT cash FROM users WHERE ref = ?", [event.data['text']])
-                            cash = cursor.fetchone()[0]
-                            cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
-                            cursor.execute("UPDATE users SET cash = ? WHERE ref = ?", [cash + 30, event.data['text']])
-                            cursor.execute("SELECT cash FROM users WHERE id = ?", [event.data['from']['userId']])
-                            cash = cursor.fetchone()[0]
-                            cursor.execute("UPDATE users SET cash = ? WHERE id = ?",
-                                           [cash + 30, event.data['from']['userId']])
-                            bot.send_text(chat_id=event.data['from']['userId'],
-                                          text="✅ Такой промокод есть! Вам зачислено 30 монет",
-                                          inline_keyboard_markup="{}".format(json.dumps(
-                                              [[{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
-                    else:
-                        bot.send_text(chat_id=event.data['from']['userId'],
-                                      text="❌ Такого промокода нет.",
+                                      text="😏 Не стоит хитрить.",
                                       inline_keyboard_markup="{}".format(json.dumps(
                                           [[{"text": "Ещё раз", "callbackData": "promo", "style": "primary"}],
                                            [{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
                         cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
+
+                    else:
+                        cursor.execute("UPDATE users SET get_promo = 1 WHERE id = ?",
+                                       [event.data['from']['userId']])
+                        cursor.execute("SELECT cash FROM users WHERE ref = ?", [event.data['text']])
+                        cash = cursor.fetchone()[0]
+                        cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
+                        cursor.execute("UPDATE users SET cash = ? WHERE ref = ?", [cash + 30, event.data['text']])
+                        cursor.execute("SELECT cash FROM users WHERE id = ?", [event.data['from']['userId']])
+                        cash = cursor.fetchone()[0]
+                        cursor.execute("UPDATE users SET cash = ? WHERE id = ?",
+                                       [cash + 30, event.data['from']['userId']])
+                        bot.send_text(chat_id=event.data['from']['userId'],
+                                      text="✅ Такой промокод есть! Вам зачислено 30 монет",
+                                      inline_keyboard_markup="{}".format(json.dumps(
+                                          [[{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
                 else:
-                    start_cb(bot, event)
-                con.commit()
+                    bot.send_text(chat_id=event.data['from']['userId'],
+                                  text="❌ Такого промокода нет.",
+                                  inline_keyboard_markup="{}".format(json.dumps(
+                                      [[{"text": "Ещё раз", "callbackData": "promo", "style": "primary"}],
+                                       [{"text": "🗂️ Меню", "callbackData": "menu", "style": "base"}]])))
+                    cursor.execute("UPDATE users SET promo = 0 WHERE id = ?", [event.data['from']['userId']])
+            else:
+                start_cb(bot, event)
+            con.commit()
         else:
             if event.data['callbackData'] == "quest":
                 bot.answer_callback_query(
@@ -430,7 +431,6 @@ def answer_cb(bot, event):
                     cursor.execute("UPDATE users SET msg_count = 0 WHERE id = ?", [event.data['from']['userId']])
                     cursor.execute("UPDATE users SET last = ? WHERE id = ?",
                                    [int(event.data['callbackData']), event.data['from']['userId']])
-                    print(qb.repl(event.data['callbackData'])[3])
                     bot.send_text(chat_id=event.data['from']['userId'],
                                   text="🏆 Это конец квеста.\nЧтобы запустить его заново, просто нажмите на кнопку.",
                                   inline_keyboard_markup="{}".format(json.dumps(
@@ -444,7 +444,8 @@ def answer_cb(bot, event):
 def main():
     bot.dispatcher.add_handler(BotButtonCommandHandler(callback=answer_cb))
     bot.dispatcher.add_handler(StartCommandHandler(callback=start_cb))
-    bot.dispatcher.add_handler(MessageHandler(callback=answer_cb))
+    bot.dispatcher.add_handler(CommandHandler(command="notwork", callback=notwork_cb))
+    bot.dispatcher.add_handler(MessageHandler(filters=Filter.regexp("^(?!/).+"), callback=answer_cb))
     bot.start_polling()
     bot.idle()
 
