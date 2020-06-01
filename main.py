@@ -40,7 +40,8 @@ def start_cb(bot, event):
 def notwork_cb(bot, event):
     bot.send_text(chat_id=event.from_chat,
                   text="Если Вы застряли на \"Вы находитесь в меню\" и у Вас не отображаются кнопки, установите "
-                       "приложение на телефон или компьютер. А если оно у Вас установлено, обновите.\nЗатем напишите /start.")
+                       "приложение на телефон или компьютер. А если оно у Вас установлено, обновите.\nЗатем напишите "
+                       "/start.")
 
 
 def answer_cb(bot, event):
@@ -184,9 +185,15 @@ def answer_cb(bot, event):
                 bot.answer_callback_query(
                     query_id=event.data['queryId'],
                     text="")
+                cursor.execute("SELECT * FROM users ORDER BY cash DESC")
+                result = cursor.fetchall()
+                your = 10
+                for i in range(len(result)):
+                    if result[i][0] == event.data['from']['userId']:
+                        your = i
                 bot.edit_text(chat_id=event.data['from']['userId'],
                               msg_id=event.data['message']['msgId'],
-                              text=f"👋 Добро пожаловать, {event.data['from']['firstName']}!\nВы находитесь в 🗂️Меню",
+                              text=f"👋 Добро пожаловать, {event.data['from']['firstName']}!\nВы находитесь в 🗂️Меню\nКстати, Вы на {your+1} месте!",
                               inline_keyboard_markup="{}".format(json.dumps(
                                   [[{"text": "📚 Квесты", "callbackData": "quests", "style": "primary"}],
                                    [{"text": "📊 Рейтинг", "callbackData": "rate",
@@ -198,8 +205,14 @@ def answer_cb(bot, event):
                 bot.answer_callback_query(
                     query_id=event.data['queryId'],
                     text="")
+                cursor.execute("SELECT * FROM users ORDER BY cash DESC")
+                result = cursor.fetchall()
+                your = 10
+                for i in range(len(result)):
+                    if result[i][0] == event.data['from']['userId']:
+                        your = i
                 bot.send_text(chat_id=event.data['from']['userId'],
-                              text=f"👋 Добро пожаловать, {event.data['from']['firstName']}!\nВы находитесь в 🗂️Меню",
+                              text=f"👋 Добро пожаловать, {event.data['from']['firstName']}!\nВы находитесь в 🗂️Меню\nКстати, Вы на {your+1} месте!",
                               inline_keyboard_markup="{}".format(json.dumps(
                                   [[{"text": "📚 Квесты", "callbackData": "quests", "style": "primary"}],
                                    [{"text": "📊 Рейтинг", "callbackData": "rate",

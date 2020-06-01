@@ -76,7 +76,7 @@ def sendEnd(ans, event):
 def getRating(user_id, event):
     cursor.execute("SELECT * FROM users ORDER BY cash DESC")
     result = cursor.fetchall()
-    text = "Приглашайте друзей и поднимайтесь в рейтинге!\n"
+    text = "Приглашайте друзей, зарабатывайте монеты и поднимайтесь в рейтинге!\n"
     your = 10
     for i in range(len(result)):
         if i < 10:
